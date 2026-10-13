@@ -60,6 +60,27 @@ def break_even_utilization(discount_frac: float) -> float:
     return max(0.0, min(1.0, 1.0 - discount_frac))
 
 
+def cache_is_worth_it(
+    avg_cache_reads: float,
+    write_cost_per_m: float,
+    read_discount: float = 0.10,
+    read_price_per_m: float | None = None,
+) -> bool:
+    """Check if prompt caching saves money given average reads and write/read pricing.
+
+    Prompt caching creates upfront overhead (write cost / storage fee). It is
+    worthwhile only when cumulative read savings exceed the write overhead:
+        avg_cache_reads * (1 - read_discount) * read_price >= write_cost.
+    Break-even reads N = write_cost / ((1 - read_discount) * read_price).
+    """
+    base_read = read_price_per_m if read_price_per_m is not None else write_cost_per_m
+    savings_per_read = base_read * (1.0 - read_discount)
+    if savings_per_read <= 0:
+        return False
+    break_even_reads = write_cost_per_m / savings_per_read
+    return avg_cache_reads >= break_even_reads
+
+
 def recommend_tier(hours_per_day: float, interruptible: bool, reserved_discount: float = 0.45) -> str:
     """Pick a purchasing tier from a workload's duty cycle + interruptibility.
 
